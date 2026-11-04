@@ -15,7 +15,7 @@ tools.
 2. Install the project:
 
    ```powershell
-   python -m pip install langchain dotenv langgraph langsmith langchain-openai -e ".[dev]"
+   python -m pip install langchain dotenv langgraph langsmith langchain-openai pytest -e ".[dev]"
    ```
 
 3. Copy `.env.example` to `.env` and set `OPENAI_API_KEY`.
