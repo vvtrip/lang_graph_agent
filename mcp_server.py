@@ -9,8 +9,9 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 from sklearn.datasets import load_digits
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -30,6 +31,12 @@ def _summary(result: dict[str, Any]) -> dict[str, Any]:
         "model": result.get("model_name", result.get("model", "unknown")),
         "attempts": result["attempt"],
         "accuracy": round(accuracy, 4),
+        "f1_macro": round(result.get("f1_macro", accuracy), 4),
+        "objective": result.get("objective", "accuracy"),
+        "score": round(result.get("score", accuracy), 4),
+        "target_score": result.get("target_score"),
+        "target_met": result.get("target_met"),
+        "requested_classifier": result.get("requested_classifier"),
         "sample_index": result.get("sample_index", 0),
         "prediction": result.get("prediction"),
     }
@@ -43,11 +50,29 @@ def _save_status(result: dict[str, Any]) -> None:
 
 
 @mcp.tool()
-async def train_mnist(target_accuracy: float = 0.95) -> str:
-    """Train and evaluate the digit classifier, retrying when needed."""
+async def train_mnist(
+    target_accuracy: float = 0.95,
+    objective: str = "accuracy",
+    target_score: float | None = None,
+    classifier: str = "auto",
+) -> str:
+    """Train a requested classifier or select the best candidate automatically."""
     global _last_result, _model, _X_test
     if not 0.0 < target_accuracy <= 1.0:
         raise ValueError("target_accuracy must be greater than 0 and at most 1")
+    if objective not in {"accuracy", "f1_macro"}:
+        raise ValueError("objective must be 'accuracy' or 'f1_macro'")
+    if classifier not in {
+        "auto",
+        "logistic_regression",
+        "random_forest",
+    }:
+        raise ValueError(
+            "classifier must be 'auto', 'logistic_regression', or 'random_forest'"
+        )
+    if target_score is not None and not 0.0 < target_score <= 1.0:
+        raise ValueError("target_score must be greater than 0 and at most 1")
+
     def train() -> dict[str, Any]:
         digits = load_digits()
         X_train, X_test, y_train, y_test = train_test_split(
@@ -57,20 +82,59 @@ async def train_mnist(target_accuracy: float = 0.95) -> str:
             random_state=42,
             stratify=digits.target,
         )
-        model = make_pipeline(
-            StandardScaler(),
-            LogisticRegression(max_iter=300, random_state=42),
+        candidates = {
+            "logistic_regression": make_pipeline(
+                StandardScaler(),
+                LogisticRegression(max_iter=300, random_state=42),
+            ),
+            "random_forest": RandomForestClassifier(
+                n_estimators=120,
+                random_state=42,
+                n_jobs=1,
+            ),
+        }
+        if classifier != "auto":
+            candidates = {
+                classifier: candidates[classifier],
+            }
+        evaluated: list[dict[str, Any]] = []
+        for model_name, model in candidates.items():
+            model.fit(X_train, y_train)
+            predictions = model.predict(X_test)
+            accuracy = float(accuracy_score(y_test, predictions))
+            f1_macro = float(
+                f1_score(y_test, predictions, average="macro", zero_division=0)
+            )
+            evaluated.append(
+                {
+                    "model": model,
+                    "model_name": model_name,
+                    "accuracy": accuracy,
+                    "f1_macro": f1_macro,
+                }
+            )
+        selected = max(
+            evaluated,
+            key=lambda item: item["f1_macro"]
+            if objective == "f1_macro"
+            else item["accuracy"],
         )
-        model.fit(X_train, y_train)
-        accuracy = float(accuracy_score(y_test, model.predict(X_test)))
         return {
-            "model": model,
+            "model": selected["model"],
             "X_test": X_test,
-            "model_name": "logistic_regression",
-            "attempt": 1,
-            "accuracy": accuracy,
+            "model_name": selected["model_name"],
+            "attempt": len(evaluated),
+            "accuracy": selected["accuracy"],
+            "f1_macro": selected["f1_macro"],
+            "objective": objective,
+            "score": selected[objective],
+            "target_score": target_score,
+            "target_met": (
+                target_score is None or selected[objective] >= target_score
+            ),
+            "requested_classifier": classifier,
             "sample_index": 0,
-            "prediction": int(model.predict(X_test[:1])[0]),
+            "prediction": int(selected["model"].predict(X_test[:1])[0]),
         }
 
     trained = await asyncio.to_thread(train)

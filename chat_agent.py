@@ -22,9 +22,13 @@ load_dotenv()
 SYSTEM_PROMPT = """You are an assistant for a classical ML digit-classification project.
 Use the available tools for any claim about training, accuracy, predictions, or model
 status. Do not invent metrics. Use model_status for questions about current or latest
-accuracy. Train only when the user asks to train, fit, evaluate, or retrain. Explain
-tool results clearly and briefly. If the request is unrelated or ambiguous, ask a
-concise clarifying question."""
+accuracy or F1. Train only when the user asks to train, fit, evaluate, or retrain.
+Honor an explicit classifier request such as Random Forest or Logistic Regression;
+otherwise use the automatic candidate selection mode.
+If the user asks to maximize F1, use objective=f1_macro. Explain that the result is
+the best score among the implemented candidate models, not a mathematical global
+maximum. Explain tool results clearly and briefly. If the request is unrelated or
+ambiguous, ask a concise clarifying question."""
 
 MCP_TOOLS = [
     {
@@ -38,7 +42,21 @@ MCP_TOOLS = [
                     "target_accuracy": {
                         "type": "number",
                         "description": "Minimum desired accuracy between 0 and 1.",
-                    }
+                    },
+                    "objective": {
+                        "type": "string",
+                        "enum": ["accuracy", "f1_macro"],
+                        "description": "Metric used to select the best candidate model.",
+                    },
+                    "target_score": {
+                        "type": "number",
+                        "description": "Optional target for the selected objective.",
+                    },
+                    "classifier": {
+                        "type": "string",
+                        "enum": ["auto", "logistic_regression", "random_forest"],
+                        "description": "Classifier to train, or auto for model selection.",
+                    },
                 },
                 "additionalProperties": False,
             },
@@ -65,7 +83,7 @@ MCP_TOOLS = [
         "type": "function",
         "function": {
             "name": "model_status",
-            "description": "Return the latest completed model accuracy and status.",
+            "description": "Return the latest completed model accuracy, F1, and status.",
             "parameters": {
                 "type": "object",
                 "properties": {},
