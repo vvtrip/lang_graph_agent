@@ -93,11 +93,26 @@ MCP_TOOLS = [
     },
 ]
 MCP_TOOL_NAMES = {tool["function"]["name"] for tool in MCP_TOOLS}
+MCP_LOG_FILE = Path(__file__).with_name("logs") / "mnist_mcp.log"
 
 
 class ChatState(TypedDict, total=False):
     messages: Annotated[list[AnyMessage], operator.add]
     llm_calls: int
+
+
+def _forward_mcp_logs(offset: int) -> int:
+    """Forward new MCP log lines when child-process stderr is not attached."""
+    if not MCP_LOG_FILE.exists():
+        return offset
+    with MCP_LOG_FILE.open("r", encoding="utf-8") as log_file:
+        log_file.seek(offset)
+        new_output = log_file.read()
+        new_offset = log_file.tell()
+    if new_output:
+        sys.stderr.write(new_output)
+        sys.stderr.flush()
+    return new_offset
 
 
 def _create_model():
@@ -136,28 +151,37 @@ async def _mcp_node(state: ChatState) -> dict[str, list[ToolMessage]]:
         args=[str(Path(__file__).with_name("mcp_server.py"))],
     )
     tool_messages: list[ToolMessage] = []
-    async with stdio_client(server) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            for tool_call in last_message.tool_calls:
-                tool_name = tool_call["name"]
-                if tool_name not in MCP_TOOL_NAMES:
-                    raise ValueError(f"Unknown MCP tool requested: {tool_name}")
-                result = await session.call_tool(
-                    tool_name,
-                    arguments=tool_call.get("args", {}),
-                )
-                if result.isError:
-                    raise RuntimeError(f"MCP tool failed: {tool_name}")
-                text = next(
-                    (item.text for item in result.content if hasattr(item, "text")),
-                    "",
-                )
-                if not text:
-                    raise RuntimeError(f"MCP tool returned no result: {tool_name}")
-                tool_messages.append(
-                    ToolMessage(content=text, tool_call_id=tool_call["id"])
-                )
+    log_offset = (
+        MCP_LOG_FILE.stat().st_size if MCP_LOG_FILE.exists() else 0
+    )
+    with open(os.devnull, "w") as mcp_errlog:
+        async with stdio_client(server, errlog=mcp_errlog) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                for tool_call in last_message.tool_calls:
+                    tool_name = tool_call["name"]
+                    if tool_name not in MCP_TOOL_NAMES:
+                        raise ValueError(f"Unknown MCP tool requested: {tool_name}")
+                    result = await session.call_tool(
+                        tool_name,
+                        arguments=tool_call.get("args", {}),
+                    )
+                    log_offset = _forward_mcp_logs(log_offset)
+                    if result.isError:
+                        raise RuntimeError(f"MCP tool failed: {tool_name}")
+                    text = next(
+                        (
+                            item.text
+                            for item in result.content
+                            if hasattr(item, "text")
+                        ),
+                        "",
+                    )
+                    if not text:
+                        raise RuntimeError(f"MCP tool returned no result: {tool_name}")
+                    tool_messages.append(
+                        ToolMessage(content=text, tool_call_id=tool_call["id"])
+                    )
     return {"messages": tool_messages}
 
 

@@ -3,7 +3,7 @@ import pytest
 from langchain.messages import AIMessage
 
 from chat_agent import run_chat
-from mcp_server import train_mnist
+from mcp_server import model_status, train_mnist
 
 
 class FakeModel:
@@ -56,3 +56,27 @@ async def test_mcp_can_train_requested_random_forest() -> None:
 
     assert result["requested_classifier"] == "random_forest"
     assert result["model"] == "random_forest"
+
+
+@pytest.mark.anyio
+async def test_status_recomputes_metrics_from_model_artifact() -> None:
+    import json
+
+    await train_mnist(classifier="random_forest")
+    result = json.loads(model_status())
+
+    assert result["metrics_source"] == "persisted_model_recomputed"
+    assert result["metrics_verified"] is True
+
+
+def test_status_is_not_trained_when_artifacts_are_empty(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "mcp_server._MODEL_FILE", tmp_path / ".mnist_model.pkl"
+    )
+    status_file = tmp_path / ".mnist_status.json"
+    status_file.write_text("", encoding="utf-8")
+    monkeypatch.setattr("mcp_server._STATUS_FILE", status_file)
+
+    import json
+
+    assert json.loads(model_status()) == {"status": "not_trained"}

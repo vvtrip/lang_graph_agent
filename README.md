@@ -35,6 +35,8 @@ ML implementation directly; it calls explicit tools:
 The latest summary is written to `.mnist_status.json`. This file is ignored by
 Git and allows status queries to work even though the stdio MCP server is
 started as a short-lived process for each request.
+The trained model and held-out test data are persisted in `.mnist_model.pkl`,
+so a later prediction can load the existing model instead of retraining.
 
 The MCP server also maintains a developer log at
 `logs/mnist_mcp.log`. It appends timestamped records for dataset loading,
