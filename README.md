@@ -1,33 +1,192 @@
-# Agentic Arithmetic
+# LangGraph Agentic Classical ML Tutorial
 
-A small LangGraph agent that uses an LLM to decide when to call arithmetic
-tools.
+This project demonstrates two levels of an agentic classical ML application:
 
-## Setup
+1. A deterministic LangGraph workflow trains and evaluates a digit classifier.
+2. A FastAPI chat app uses an OpenAI tool-calling agent, LangGraph, and an MCP
+   server to let users operate the ML workflow in natural language.
 
-1. Create a virtual environment:
+The dataset is `sklearn.datasets.load_digits`, a small local MNIST-like dataset
+with 8x8 grayscale images. It is used instead of downloading full MNIST so the
+demo is reproducible and fast.
 
-   ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   ```
+## 1. Architecture
 
-2. Install the project:
-
-   ```powershell
-   python -m pip install langchain dotenv langgraph langsmith langchain-openai pytest -e ".[dev]"
-   ```
-
-3. Copy `.env.example` to `.env` and set `OPENAI_API_KEY`.
-
-## Run
-
-```powershell
-python agent.py
+```text
+Browser
+  -> FastAPI /api/chat
+    -> LangGraph chat_agent.py
+      -> OpenAI chooses an MCP tool
+        -> MCP stdio client
+          -> mcp_server.py
+            -> scikit-learn training/prediction
+      <- tool result
+    <- OpenAI writes the final response
+  <- JSON response
 ```
 
-## Test
+The important boundary is the MCP server. The chat agent does not import the
+ML implementation directly; it calls explicit tools:
+
+- `train_mnist(target_accuracy)`: train and evaluate the classifier.
+- `predict_digit(sample_index)`: classify a held-out sample.
+- `model_status()`: return the latest persisted metrics.
+
+The latest summary is written to `.mnist_status.json`. This file is ignored by
+Git and allows status queries to work even though the stdio MCP server is
+started as a short-lived process for each request.
+
+## 2. Components
+
+| File | Responsibility |
+| --- | --- |
+| [mnist_workflow.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/mnist_workflow.py) | LangGraph ML pipeline: load, train, evaluate, retry, predict |
+| [mcp_server.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/mcp_server.py) | MCP tool server around the ML operations |
+| [chat_agent.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/chat_agent.py) | Production OpenAI tool-calling LangGraph agent |
+| [legacy_chat_agent.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/legacy_chat_agent.py) | Optional deterministic routing alternative; never imported by the app |
+| [web_app.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/web_app.py) | FastAPI API and browser chat UI |
+| [agent.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/agent.py) | Separate arithmetic LangGraph example |
+| [tests/](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/tests) | Workflow and chat tests |
+
+## 3. Installation
+
+Use Python 3.11 or newer:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+```
+
+Copy the environment template:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Set at least:
+
+```text
+OPENAI_API_KEY=your_openai_key
+OPENAI_MODEL=gpt-5-nano
+```
+
+Never commit `.env` or expose API keys in chat, source code, or screenshots.
+
+## 4. Run the classical ML workflow directly
+
+```powershell
+python mnist_workflow.py
+```
+
+This path does not need OpenAI. It produces deterministic metrics such as:
+
+```text
+Model: logistic_regression
+Attempts: 1
+Accuracy: 0.972
+Predicted held-out digit: 5
+```
+
+The graph nodes are:
+
+1. `load_data`
+2. `train_model`
+3. `evaluate_model`
+4. `predict_digit`
+
+If the target accuracy is not reached, the evaluation edge loops back to
+training for another model attempt.
+
+## 5. Run the web app
+
+```powershell
+python -m uvicorn web_app:app --reload
+```
+
+Open <http://127.0.0.1:8000>.
+
+Try:
+
+- `Train the model with a target accuracy of 0.95`
+- `What is the current accuracy?`
+- `Predict sample 12`
+- `Which model is currently ready?`
+- `Explain how the evaluation works`
+
+### OpenAI agent flow
+
+The production agent in [chat_agent.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/chat_agent.py)
+does not match keywords. It:
+
+1. Sends the user message and tool schemas to OpenAI.
+2. Lets OpenAI select a tool and generate validated arguments.
+3. Executes that tool through MCP.
+4. Adds the MCP result to the LangGraph message state.
+5. Calls OpenAI again to produce the final answer.
+6. Repeats the tool loop if more tool calls are requested.
+
+The system prompt instructs the model to use tools for all metrics and never
+invent accuracy values.
+
+## 6. Legacy deterministic alternative
+
+[legacy_chat_agent.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/legacy_chat_agent.py)
+is intentionally preserved for learning. It is not imported by
+[web_app.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/web_app.py) or
+[chat_agent.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/chat_agent.py).
+
+Run it directly:
+
+```powershell
+python -c "import asyncio; from legacy_chat_agent import run_legacy_chat; print(asyncio.run(run_legacy_chat('what is the current accuracy?')))"
+```
+
+| Topic | OpenAI agent | Legacy router |
+| --- | --- | --- |
+| Intent detection | Model understands varied language | Fixed keywords and regex |
+| Tool choice | OpenAI tool calling | Hard-coded branches |
+| Arguments | Model extracts arguments, MCP validates them | Regex/default values |
+| Final response | Model-generated from tool output | Fixed string templates |
+| Cost/latency | Requires API calls | No LLM cost |
+| Flexibility | Handles paraphrases and follow-ups | Limited to coded phrases |
+| Failure mode | API/model/tool errors | Unrecognized wording or wrong branch |
+| Best use | Production-style conversational agent | Teaching, offline fallback, baseline |
+
+The legacy file demonstrates routing, but it is not the application path.
+Keeping it separate makes the architectural difference explicit.
+
+## 7. LangSmith tracing
+
+Set these values in `.env`:
+
+```text
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=lsv2_...
+LANGSMITH_PROJECT=mnist-langgraph-demo
+```
+
+Run the app or workflow again, then open the project in LangSmith. The chat
+trace should show:
+
+- `mnist-chat-agent`
+- `openai_chat_reasoning`
+- `call_mnist_mcp_tool`
+- the MCP server tool execution
+- the final OpenAI response
+
+The direct workflow uses the `mnist-agentic-classical-ml` run name and tags for
+data, training, evaluation, and prediction.
+
+If a run is stopped while MCP is active, LangSmith may retain an old trace as
+`pending` because the completion event was never sent. Treat that as an
+interrupted historical run; newer completed traces are the source of truth.
+
+## 8. Testing
 
 ```powershell
 python -m pytest
 ```
+
+The tests cover the ML graph and use an injected fake chat model, so tests do
+not consume OpenAI credits. The live web app requires `OPENAI_API_KEY`.

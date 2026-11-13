@@ -34,6 +34,7 @@ target-version = "py311"
 py-modules = [
     "agent",
     "chat_agent",
+    "legacy_chat_agent",
     "mcp_server",
     "mnist_workflow",
     "tools",
