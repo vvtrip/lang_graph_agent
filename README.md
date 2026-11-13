@@ -36,6 +36,13 @@ The latest summary is written to `.mnist_status.json`. This file is ignored by
 Git and allows status queries to work even though the stdio MCP server is
 started as a short-lived process for each request.
 
+The MCP server also maintains a developer log at
+`logs/mnist_mcp.log`. It appends timestamped records for dataset loading,
+training start, per-model evaluation, model selection, prediction, status
+checks, completion, and failures. The log is ignored by Git and is the primary
+place to verify that an operation actually executed; it is not required to be
+shown in the chat response.
+
 ## 2. Components
 
 | File | Responsibility |
