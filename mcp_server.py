@@ -153,6 +153,14 @@ async def train_mnist(
             random_state=42,
             stratify=digits.target,
         )
+        _log_event(
+            operation_id,
+            "train_test_split_created",
+            "Created train/test split",
+            train_samples=len(X_train),
+            test_samples=len(X_test),
+            test_size=0.2,
+        )
         candidates = {
             "logistic_regression": make_pipeline(
                 StandardScaler(),
@@ -210,6 +218,16 @@ async def train_mnist(
             objective=objective,
             score=round(selected[objective], 4),
         )
+        sample_prediction = int(selected["model"].predict(X_test[:1])[0])
+        _log_event(
+            operation_id,
+            "sample_prediction_completed",
+            "Sample prediction completed",
+            model=selected["model_name"],
+            sample_index=0,
+            prediction=sample_prediction,
+            expected=int(y_test[0]),
+        )
         return {
             "model": selected["model"],
             "X_test": X_test,
@@ -227,7 +245,7 @@ async def train_mnist(
             "requested_classifier": classifier,
             "operation_id": operation_id,
             "sample_index": 0,
-            "prediction": int(selected["model"].predict(X_test[:1])[0]),
+            "prediction": sample_prediction,
         }
 
     try:
