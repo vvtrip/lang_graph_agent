@@ -115,6 +115,23 @@ python -m uvicorn web_app:app --reload
 
 Open <http://127.0.0.1:8000>.
 
+## 6. Use LangGraph Studio
+
+The [langgraph.json](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/langgraph.json)
+configuration exposes the arithmetic agent, the OpenAI/MCP chat agent, and the
+deterministic MNIST workflow to LangGraph Studio.
+
+Install the LangGraph CLI and start the local development server:
+
+```powershell
+python -m pip install -U "langgraph-cli[inmem]"
+langgraph dev
+```
+
+Open the URL printed by the CLI and select a graph. The chat agent requires
+`OPENAI_API_KEY` in `.env`; the arithmetic agent and MNIST workflow use the
+configuration's existing environment loading.
+
 Try:
 
 - `Train the model with a target accuracy of 0.95`
