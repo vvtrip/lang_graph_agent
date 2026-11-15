@@ -1,0 +1,11 @@
+{
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "arithmetic_agent": "./agent.py:create_agent",
+    "chat_agent": "./chat_agent.py:create_chat_agent",
+    "mnist_workflow": "./mnist_workflow.py:create_workflow"
+  },
+  "env": ".env"
+}

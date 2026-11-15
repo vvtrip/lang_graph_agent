@@ -11,3 +11,4 @@ htmlcov/
 .mnist_status.json
 .mnist_model.pkl
 logs/
+.langgraph_api/
