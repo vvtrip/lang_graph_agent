@@ -49,13 +49,13 @@ shown in the chat response.
 
 | File | Responsibility |
 | --- | --- |
-| [mnist_workflow.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/mnist_workflow.py) | LangGraph ML pipeline: load, train, evaluate, retry, predict |
-| [mcp_server.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/mcp_server.py) | MCP tool server around the ML operations |
-| [chat_agent.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/chat_agent.py) | Production OpenAI tool-calling LangGraph agent |
-| [legacy_chat_agent.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/legacy_chat_agent.py) | Optional deterministic routing alternative; never imported by the app |
-| [web_app.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/web_app.py) | FastAPI API and browser chat UI |
-| [agent.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/agent.py) | Separate arithmetic LangGraph example |
-| [tests/](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/tests) | Workflow and chat tests |
+| [mnist_workflow.py] | LangGraph ML pipeline: load, train, evaluate, retry, predict |
+| [mcp_server.py] | MCP tool server around the ML operations |
+| [chat_agent.py] | Production OpenAI tool-calling LangGraph agent |
+| [legacy_chat_agent.py] | Optional deterministic routing alternative; never imported by the app |
+| [web_app.py] | FastAPI API and browser chat UI |
+| [agent.py] | Separate arithmetic LangGraph example |
+| [tests/] | Workflow and chat tests |
 
 ## 3. Installation
 
@@ -117,7 +117,7 @@ Open <http://127.0.0.1:8000>.
 
 ## 6. Use LangGraph Studio
 
-The [langgraph.json](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/langgraph.json)
+The [langgraph.json]
 configuration exposes the arithmetic agent, the OpenAI/MCP chat agent, and the
 deterministic MNIST workflow to LangGraph Studio.
 
@@ -142,7 +142,7 @@ Try:
 
 ### OpenAI agent flow
 
-The production agent in [chat_agent.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/chat_agent.py)
+The production agent in [chat_agent.py]
 does not match keywords. It:
 
 1. Sends the user message and tool schemas to OpenAI.
@@ -157,10 +157,10 @@ invent accuracy values.
 
 ## 6. Legacy deterministic alternative
 
-[legacy_chat_agent.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/legacy_chat_agent.py)
+[legacy_chat_agent.py]
 is intentionally preserved for learning. It is not imported by
-[web_app.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/web_app.py) or
-[chat_agent.py](C:/Users/Vaibhav/Downloads/GITHUB/lang_graph_agent/chat_agent.py).
+[web_app.py]
+[chat_agent.py]
 
 Run it directly:
 
