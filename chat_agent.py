@@ -194,7 +194,10 @@ def _next_step(state: ChatState) -> Literal["mcp", END]:
 
 def create_chat_agent(model: Any | None = None):
     """Build the OpenAI tool-calling graph."""
-    selected_model = model or _create_model()
+    # LangGraph passes a config dict when loading callable graph factories.
+    selected_model = (
+        _create_model() if model is None or isinstance(model, dict) else model
+    )
     builder = StateGraph(ChatState)
     builder.add_node(
         "llm",

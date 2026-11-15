@@ -2,7 +2,7 @@ import pytest
 
 from langchain.messages import AIMessage
 
-from chat_agent import run_chat
+from chat_agent import create_chat_agent, run_chat
 from mcp_server import model_status, train_mnist
 
 
@@ -21,6 +21,19 @@ class FakeModel:
                 ],
             )
         return AIMessage(content="The current accuracy is 97.2%.")
+
+
+def test_graph_factory_ignores_langgraph_config(monkeypatch) -> None:
+    created = []
+    monkeypatch.setattr(
+        "chat_agent._create_model",
+        lambda: created.append(True) or FakeModel(),
+    )
+
+    graph = create_chat_agent({})
+
+    assert graph is not None
+    assert created == [True]
 
 
 @pytest.mark.anyio
