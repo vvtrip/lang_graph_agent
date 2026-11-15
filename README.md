@@ -125,12 +125,15 @@ Install the LangGraph CLI and start the local development server:
 
 ```powershell
 python -m pip install -U "langgraph-cli[inmem]"
-langgraph dev
+# The CLI may install MCP 2.x; this project uses the MCP 1.x API.
+python -m pip install "mcp>=1.0,<2"
+langgraph dev --allow-blocking
 ```
 
 Open the URL printed by the CLI and select a graph. The chat agent requires
 `OPENAI_API_KEY` in `.env`; the arithmetic agent and MNIST workflow use the
-configuration's existing environment loading.
+configuration's existing environment loading. Restart the CLI after changing
+the MCP version.
 
 Try:
 
@@ -155,7 +158,7 @@ does not match keywords. It:
 The system prompt instructs the model to use tools for all metrics and never
 invent accuracy values.
 
-## 6. Legacy deterministic alternative
+## 7. Legacy deterministic alternative
 
 [legacy_chat_agent.py]
 is intentionally preserved for learning. It is not imported by
@@ -182,7 +185,7 @@ python -c "import asyncio; from legacy_chat_agent import run_legacy_chat; print(
 The legacy file demonstrates routing, but it is not the application path.
 Keeping it separate makes the architectural difference explicit.
 
-## 7. LangSmith tracing
+## 8. LangSmith tracing
 
 Set these values in `.env`:
 
@@ -208,7 +211,7 @@ If a run is stopped while MCP is active, LangSmith may retain an old trace as
 `pending` because the completion event was never sent. Treat that as an
 interrupted historical run; newer completed traces are the source of truth.
 
-## 8. Testing
+## 9. Testing
 
 ```powershell
 python -m pytest
